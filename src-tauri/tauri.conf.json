@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Camera Alarm Monitor",
+  "version": "0.1.0",
+  "identifier": "com.bosch.camera-monitor",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 760,
+        "resizable": true,
+        "title": "Camera Alarm Monitor",
+        "width": 1200,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "category": "Utility",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "targets": "all",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/ATX92614/camera-monitor/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUzNTBCQUEyOTRGODgzMkIKUldRcmcvaVVvcnBRNHhXRzN6RnNNcmxPSERURExLamZacTRJc3U0emJqUFEzamc5VlNIRk92bnkK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Virtual Alarm Monitor</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #060b1a;
+            --bg-panel: rgba(17, 25, 46, 0.86);
+            --bg-panel-alt: rgba(24, 35, 65, 0.86);
+            --border: rgba(87, 104, 150, 0.35);
+            --accent: #5ad0ff;
+            --accent-strong: #3c8dff;
+            --positive: #39d98a;
+            --warning: #ffb454;
+            --error: #ff5460;
+            --text: #f5f8ff;
+            --text-dim: rgba(229, 236, 255, 0.78);
+            --text-muted: rgba(229, 236, 255, 0.55);
+            --shadow: 0 24px 45px rgba(6, 10, 25, 0.45);
+            --widget-bg-primary: linear-gradient(
+                165deg,
+                rgba(6, 13, 27, 0.98),
+                rgba(8, 20, 42, 0.88)
+            );
+            --widget-bg-highlight: radial-gradient(
+                circle at 18% 18%,
+                rgba(104, 231, 255, 0.18),
+                transparent 55%
+            );
+            --widget-bg-secondary: radial-gradient(
+                circle at 78% -10%,
+                rgba(68, 120, 255, 0.2),
+                transparent 65%
+            );
+            --radius-lg: 18px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+            --grid-gap: 1.1rem;
+            font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont,
+                sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            height: 100%;
+            background: radial-gradient(
+                    circle at 15% 20%,
+                    rgba(58, 92, 204, 0.25),
+                    transparent 55%
+                ),
+                radial-gradient(
+                    circle at 85% 10%,
+                    rgba(90, 208, 255, 0.18),
+                    transparent 60%
+                ),
+                var(--bg);
+            color: var(--text);
+        }
+
+        body {
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 24px;
+            background: var(--bg-panel);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            gap: var(--grid-gap);
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(229, 236, 255, 0.1);
+            background: rgba(229, 236, 255, 0.04);
+        }
+
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-title {
+            margin: 0;
+            color: var(--text);
+            font-size: 20px;
+            font-weight: 650;
+            letter-spacing: 0.3px;
+        }
+
+        /* Forms */
+        .form-row {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group.small {
+            flex: 0 0 auto;
+        }
+
+        .host-input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .host-input-row input[type="text"] {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-dim);
+            letter-spacing: 0.2px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: var(--radius-sm);
+            background: rgba(14, 20, 36, 0.85);
+            color: var(--text);
+            font-size: 14px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            transition: border-color 160ms ease, outline 160ms ease, box-shadow 160ms ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: 1px solid rgba(110, 246, 255, 0.55);
+            border-color: rgba(110, 246, 255, 0.6);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
+                0 0 0 3px rgba(92, 194, 255, 0.15);
+        }
+
+        input::placeholder {
+            color: rgba(229, 236, 255, 0.4);
+        }
+
+        input:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Buttons */
+        button {
+            border: 1px solid rgba(229, 236, 255, 0.14);
+            background: linear-gradient(
+                135deg,
+                rgba(90, 208, 255, 0.26),
+                rgba(60, 141, 255, 0.18)
+            );
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 650;
+            cursor: pointer;
+            transition: transform 120ms ease, box-shadow 160ms ease, border-color 120ms ease,
+                background 160ms ease;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            border-color: rgba(90, 208, 255, 0.45);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .top-bar button {
+            flex: 0 0 auto;
+            padding: 8px 12px;
+            background: rgba(229, 236, 255, 0.05);
+            border: 1px solid rgba(229, 236, 255, 0.12);
+            box-shadow: none;
+        }
+
+        .top-bar button:hover:not(:disabled) {
+            background: rgba(90, 208, 255, 0.12);
+            border-color: rgba(90, 208, 255, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .buttons button {
+            flex: 1;
+            padding: 12px 16px;
+        }
+
+        button.start {
+            background: linear-gradient(120deg, #39d98a, #5ad0ff);
+            border-color: rgba(57, 217, 138, 0.55);
+            color: #0b1426;
+            box-shadow: 0 14px 38px rgba(72, 224, 255, 0.18);
+        }
+
+        button.start:hover:not(:disabled) {
+            filter: brightness(1.03);
+        }
+
+        button.stop {
+            background: linear-gradient(120deg, #ff5460, rgba(255, 180, 84, 0.5));
+            border-color: rgba(255, 84, 96, 0.55);
+            color: #0b1426;
+        }
+
+        button.stop:hover:not(:disabled) {
+            filter: brightness(1.03);
+        }
+
+        button.detect {
+            flex: 0 0 auto;
+            padding: 10px 12px;
+            font-size: 13px;
+            background: rgba(229, 236, 255, 0.06);
+            border-color: rgba(229, 236, 255, 0.14);
+            box-shadow: none;
+        }
+
+        /* Toggle: user/service */
+        .user-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-top: 26px;
+        }
+
+        .user-toggle-label {
+            font-size: 12px;
+            font-weight: 700;
+            min-width: 50px;
+            color: var(--text);
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .user-toggle-label.left {
+            text-align: right;
+        }
+
+        .user-toggle-label.right {
+            text-align: left;
+        }
+
+        .user-toggle {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .user-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .user-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(229, 236, 255, 0.16);
+            transition: 0.25s;
+            border-radius: 26px;
+            border: 1px solid rgba(229, 236, 255, 0.16);
+        }
+
+        .user-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: #ffffff;
+            transition: 0.25s;
+            border-radius: 50%;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+        }
+
+        .user-toggle input:checked + .user-toggle-slider {
+            background: rgba(229, 236, 255, 0.32);
+            border-color: rgba(90, 208, 255, 0.24);
+            box-shadow: 0 0 0 3px rgba(90, 208, 255, 0.12);
+        }
+
+        .user-toggle input:checked + .user-toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Status */
+        .status-bar {
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(229, 236, 255, 0.1);
+            background: rgba(229, 236, 255, 0.04);
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .status-bar.connected {
+            color: var(--positive);
+        }
+
+        .status-bar.disconnected {
+            color: rgba(229, 236, 255, 0.55);
+        }
+
+        .status-bar.error {
+            color: var(--error);
+        }
+
+        /* Alarms */
+        .alarms-section {
+            margin-top: 6px;
+        }
+
+        .alarms-section h3 {
+            text-align: center;
+            margin: 0 0 14px;
+            color: rgba(229, 236, 255, 0.9);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+
+        .alarms-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 10px;
+        }
+
+        .alarm-card {
+            background: var(--widget-bg-primary), var(--widget-bg-secondary),
+                var(--widget-bg-highlight);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(102, 255, 246, 0.12);
+            box-shadow: 0 18px 34px rgba(4, 10, 24, 0.4),
+                inset 0 0 0 1px rgba(102, 255, 246, 0.08);
+        }
+
+        .alarm-card.on {
+            border-color: rgba(57, 217, 138, 0.35);
+            box-shadow: 0 18px 36px rgba(57, 217, 138, 0.08),
+                inset 0 0 0 1px rgba(57, 217, 138, 0.18);
+        }
+
+        .alarm-card.off {
+            border-color: rgba(255, 84, 96, 0.35);
+            box-shadow: 0 18px 36px rgba(255, 84, 96, 0.08),
+                inset 0 0 0 1px rgba(255, 84, 96, 0.18);
+        }
+
+        .alarm-num {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            letter-spacing: 0.04em;
+        }
+
+        .alarm-indicator {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            transition: transform 160ms ease, box-shadow 180ms ease, background 180ms ease;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+        }
+
+        .alarm-indicator.on {
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(255, 255, 255, 0.9),
+                rgba(57, 217, 138, 0.95) 40%,
+                rgba(25, 140, 95, 0.95) 100%
+            );
+            box-shadow: 0 0 18px rgba(57, 217, 138, 0.55);
+        }
+
+        .alarm-indicator.off {
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(255, 255, 255, 0.9),
+                rgba(255, 84, 96, 0.95) 40%,
+                rgba(150, 35, 45, 0.95) 100%
+            );
+            box-shadow: 0 0 18px rgba(255, 84, 96, 0.55);
+        }
+
+        .alarm-indicator.unknown {
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(255, 255, 255, 0.8),
+                rgba(229, 236, 255, 0.35) 45%,
+                rgba(24, 35, 65, 0.9) 100%
+            );
+            box-shadow: 0 0 14px rgba(229, 236, 255, 0.18);
+        }
+
+        .alarm-indicator.error {
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(255, 255, 255, 0.9),
+                rgba(255, 180, 84, 0.95) 45%,
+                rgba(150, 95, 25, 0.95) 100%
+            );
+            box-shadow: 0 0 18px rgba(255, 180, 84, 0.45);
+        }
+
+        /* Toggle: per-alarm */
+        .alarm-toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            margin: 0 auto;
+        }
+
+        .alarm-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .alarm-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 84, 96, 0.8);
+            transition: 0.25s;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 84, 96, 0.35);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .alarm-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #ffffff;
+            transition: 0.25s;
+            border-radius: 50%;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+        }
+
+        .alarm-toggle input:checked + .alarm-toggle-slider {
+            background: rgba(57, 217, 138, 0.85);
+            border-color: rgba(57, 217, 138, 0.38);
+        }
+
+        .alarm-toggle input:checked + .alarm-toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .alarm-toggle input:disabled + .alarm-toggle-slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .alarm-toggle.sending .alarm-toggle-slider {
+            opacity: 0.7;
+        }
+
+        /* Modals */
+        .modal-overlay[hidden] {
+            display: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 8, 18, 0.72);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-panel);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            padding: 18px;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 14px;
+            color: var(--accent);
+            font-weight: 750;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+
+        .modal-close {
+            flex: 0 0 auto;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border-radius: 10px;
+            background: rgba(229, 236, 255, 0.05);
+            color: var(--text);
+            border: 1px solid rgba(229, 236, 255, 0.12);
+            font-size: 20px;
+            line-height: 1;
+            box-shadow: none;
+        }
+
+        .modal-close:hover:not(:disabled) {
+            background: rgba(90, 208, 255, 0.12);
+            border-color: rgba(90, 208, 255, 0.35);
+        }
+
+        .modal-body {
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.4;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .update-notes {
+            white-space: pre-wrap;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .modal-actions button {
+            flex: 0 0 auto;
+            padding: 10px 14px;
+            background: rgba(229, 236, 255, 0.06);
+            border: 1px solid rgba(229, 236, 255, 0.14);
+            box-shadow: none;
+        }
+
+        .device-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button.device-item {
+            width: 100%;
+            text-align: left;
+            background: rgba(229, 236, 255, 0.06);
+            color: var(--text);
+            border: 1px solid rgba(229, 236, 255, 0.14);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: none;
+        }
+
+        button.device-item:hover:not(:disabled) {
+            border-color: rgba(90, 208, 255, 0.35);
+            background: rgba(90, 208, 255, 0.12);
+        }
+
+        button.device-item.active {
+            border-color: rgba(90, 208, 255, 0.6);
+            background: rgba(90, 208, 255, 0.18);
+            box-shadow: 0 0 0 3px rgba(90, 208, 255, 0.12);
+        }
+
+        .device-ip {
+            font-weight: 750;
+            font-size: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        .device-mac {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                transition: none !important;
+                animation: none !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+	    <div class="container">
+	        <div class="top-bar">
+	            <h1 class="app-title">Camera Virtual Alarm Monitor</h1>
+	            <div class="top-bar-actions">
+	                <button type="button" id="updateBtn" onclick="checkForUpdates()">Updates</button>
+	                <button type="button" id="authorBtn" onclick="openAuthorModal()">Author</button>
+	            </div>
+	        </div>
+
+		        <div class="form-row">
+		            <div class="form-group">
+		                <label for="host">Camera Host IP:</label>
+		                <div class="host-input-row">
+	                        <input type="text" id="host" placeholder="e.g., 192.168.1.100">
+	                        <button type="button" class="detect" id="detectBtn" onclick="discoverCameras()">Auto Detect</button>
+	                    </div>
+	            </div>
+	            <div class="form-group small">
+	                <div class="user-toggle-container">
+	                    <span class="user-toggle-label left">user</span>
+                    <label class="user-toggle">
+                        <input type="checkbox" id="userToggle" checked>
+                        <span class="user-toggle-slider"></span>
+                    </label>
+                    <span class="user-toggle-label right">service</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Enter camera password">
+        </div>
+
+        <div class="buttons">
+            <button class="start" id="startBtn" onclick="startPolling()">Start Monitoring</button>
+            <button class="stop" id="stopBtn" onclick="stopPolling()" disabled>Stop</button>
+        </div>
+
+        <div class="status-bar disconnected" id="statusBar">Not Connected</div>
+
+	        <div class="alarms-section">
+	            <h3>Virtual Alarms (1-16)</h3>
+	            <div class="alarms-grid" id="alarmsGrid">
+	                <!-- Alarm cards will be generated here -->
+	            </div>
+	        </div>
+	    </div>
+
+		    <div class="modal-overlay" id="authorModal" role="dialog" aria-modal="true" aria-labelledby="authorModalTitle" hidden>
+		        <div class="modal" role="document">
+		            <div class="modal-header">
+		                <h2 class="modal-title" id="authorModalTitle">Author</h2>
+		                <button type="button" class="modal-close" id="authorModalClose" aria-label="Close" onclick="closeAuthorModal()">&times;</button>
+		            </div>
+		            <div class="modal-body">Made by Andre Tournoux - 2025</div>
+		            <div class="modal-actions">
+		                <button type="button" onclick="closeAuthorModal()">Close</button>
+		            </div>
+		        </div>
+		    </div>
+
+		    <div class="modal-overlay" id="updateModal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle" hidden>
+		        <div class="modal" role="document">
+		            <div class="modal-header">
+		                <h2 class="modal-title" id="updateModalTitle">Updates</h2>
+		                <button type="button" class="modal-close" id="updateModalClose" aria-label="Close" onclick="closeUpdateModal()">&times;</button>
+		            </div>
+		            <div class="modal-body">
+		                <div class="update-notes" id="updateModalBody">Check for updates to see if a new version is available.</div>
+		            </div>
+		            <div class="modal-actions">
+		                <button type="button" id="updateInstallBtn" onclick="installUpdate()" hidden>Install Update</button>
+		                <button type="button" onclick="closeUpdateModal()">Close</button>
+		            </div>
+		        </div>
+		    </div>
+
+		    <div class="modal-overlay" id="discoverModal" role="dialog" aria-modal="true" aria-labelledby="discoverModalTitle" hidden>
+		        <div class="modal" role="document">
+		            <div class="modal-header">
+		                <h2 class="modal-title" id="discoverModalTitle">Detected Cameras</h2>
+		                <button type="button" class="modal-close" id="discoverModalClose" aria-label="Close" onclick="closeDiscoverModal()">&times;</button>
+		            </div>
+		            <div class="modal-body">
+		                <div class="device-list" id="discoverList"></div>
+		            </div>
+		            <div class="modal-actions">
+		                <button type="button" onclick="closeDiscoverModal()">Close</button>
+		            </div>
+		        </div>
+		    </div>
+
+		        <script>
+		            const { invoke } = window.__TAURI__.core;
+
+		            let pollingInterval = null;
+		            let isPolling = false;
+		            let pollInFlight = false;
+		            let discoveryInFlight = false;
+		            let updateCheckInFlight = false;
+		            let updateInstallInFlight = false;
+		            let sendingAlarms = new Set();
+		            const USERNAME_STORAGE_KEY = 'camera-monitor.username';
+
+        // Initialize alarm cards
+        function initAlarmCards() {
+            const grid = document.getElementById('alarmsGrid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= 16; i++) {
+                const card = document.createElement('div');
+                card.className = 'alarm-card';
+                card.id = `alarm-card-${i}`;
+                card.innerHTML = `
+                    <div class="alarm-num">Alarm ${i}</div>
+                    <div class="alarm-indicator unknown" id="alarm-indicator-${i}"></div>
+                    <label class="alarm-toggle" id="alarm-toggle-${i}">
+                        <input type="checkbox" id="alarm-checkbox-${i}" onchange="toggleAlarm(${i})" disabled>
+                        <span class="alarm-toggle-slider"></span>
+                    </label>
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+	        function getUsername() {
+	            return document.getElementById('userToggle').checked ? 'service' : 'user';
+	        }
+
+	        function loadSavedUsername() {
+	            const saved = localStorage.getItem(USERNAME_STORAGE_KEY);
+	            if (saved !== 'user' && saved !== 'service') return;
+	            document.getElementById('userToggle').checked = saved === 'service';
+	        }
+
+	        function saveUsername() {
+	            localStorage.setItem(USERNAME_STORAGE_KEY, getUsername());
+	        }
+
+	        let lastFocusedElement = null;
+	        function openAuthorModal() {
+	            const modal = document.getElementById('authorModal');
+	            if (!modal) return;
+	            lastFocusedElement = document.activeElement;
+	            modal.hidden = false;
+	            const closeBtn = document.getElementById('authorModalClose');
+	            if (closeBtn) closeBtn.focus();
+	        }
+
+	        function closeAuthorModal() {
+	            const modal = document.getElementById('authorModal');
+	            if (!modal) return;
+	            modal.hidden = true;
+	            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+	                lastFocusedElement.focus();
+	            }
+	        }
+
+	        let lastFocusedElementUpdate = null;
+	        function openUpdateModal() {
+	            const modal = document.getElementById('updateModal');
+	            if (!modal) return;
+	            lastFocusedElementUpdate = document.activeElement;
+	            modal.hidden = false;
+	            const closeBtn = document.getElementById('updateModalClose');
+	            if (closeBtn) closeBtn.focus();
+	        }
+
+	        function closeUpdateModal() {
+	            const modal = document.getElementById('updateModal');
+	            if (!modal) return;
+	            modal.hidden = true;
+	            if (lastFocusedElementUpdate && typeof lastFocusedElementUpdate.focus === 'function') {
+	                lastFocusedElementUpdate.focus();
+	            }
+	        }
+
+	        function setUpdateModalMessage(message, { showInstall } = {}) {
+	            const body = document.getElementById('updateModalBody');
+	            if (body) body.textContent = message;
+
+	            const installBtn = document.getElementById('updateInstallBtn');
+	            if (installBtn) installBtn.hidden = !showInstall;
+	        }
+
+	        async function checkForUpdates() {
+	            if (updateCheckInFlight) return;
+
+	            const updateBtn = document.getElementById('updateBtn');
+	            updateCheckInFlight = true;
+	            if (updateBtn) updateBtn.disabled = true;
+
+	            try {
+	                setUpdateModalMessage('Checking for updates...', { showInstall: false });
+	                openUpdateModal();
+
+	                const info = await invoke('check_for_update');
+	                if (!info) {
+	                    setUpdateModalMessage("You're up to date.", { showInstall: false });
+	                    return;
+	                }
+
+	                const lines = [
+	                    `Current version: ${info.currentVersion ?? info.current_version ?? ''}`,
+	                    `Available version: ${info.availableVersion ?? info.available_version ?? ''}`,
+	                ];
+	                const date = info.date ?? null;
+	                if (date) lines.push(`Published: ${date}`);
+	                const notes = info.notes ?? null;
+	                if (notes) lines.push('', notes);
+
+	                setUpdateModalMessage(lines.join('\n'), { showInstall: true });
+	            } catch (error) {
+	                setUpdateModalMessage('Update check failed: ' + error, { showInstall: false });
+	                openUpdateModal();
+	            } finally {
+	                updateCheckInFlight = false;
+	                if (updateBtn) updateBtn.disabled = false;
+	            }
+	        }
+
+	        async function installUpdate() {
+	            if (updateInstallInFlight) return;
+
+	            const installBtn = document.getElementById('updateInstallBtn');
+	            const updateBtn = document.getElementById('updateBtn');
+	            updateInstallInFlight = true;
+	            if (installBtn) {
+	                installBtn.disabled = true;
+	                installBtn.hidden = true;
+	            }
+	            if (updateBtn) updateBtn.disabled = true;
+
+	            try {
+	                setUpdateModalMessage(
+	                    'Downloading and installing update...\n\nThe app may close and restart.',
+	                    { showInstall: false }
+	                );
+	                openUpdateModal();
+	                await invoke('install_update');
+	            } catch (error) {
+	                setUpdateModalMessage('Update install failed: ' + error, { showInstall: true });
+	                openUpdateModal();
+	            } finally {
+	                updateInstallInFlight = false;
+	                if (installBtn) installBtn.disabled = false;
+	                if (updateBtn) updateBtn.disabled = false;
+	            }
+	        }
+
+	        let lastFocusedElementDiscover = null;
+	        function openDiscoverModal() {
+	            const modal = document.getElementById('discoverModal');
+	            if (!modal) return;
+	            lastFocusedElementDiscover = document.activeElement;
+	            modal.hidden = false;
+	            const closeBtn = document.getElementById('discoverModalClose');
+	            if (closeBtn) closeBtn.focus();
+	        }
+
+	        function closeDiscoverModal() {
+	            const modal = document.getElementById('discoverModal');
+	            if (!modal) return;
+	            modal.hidden = true;
+	            if (lastFocusedElementDiscover && typeof lastFocusedElementDiscover.focus === 'function') {
+	                lastFocusedElementDiscover.focus();
+	            }
+	        }
+
+	        function setHost(host) {
+	            document.getElementById('host').value = host;
+	            setStatusBar('connected', `Selected camera: ${host}`);
+	        }
+
+	        function normalizeHostForCompare(raw) {
+	            if (typeof raw !== 'string') return '';
+	            let value = raw.trim();
+	            value = value.replace(/^https?:\/\//i, '');
+	            value = value.split('/')[0] || '';
+	            // Strip port if present (e.g. 192.168.0.93:443)
+	            value = value.split(':')[0] || '';
+	            return value.trim();
+	        }
+
+	        function renderDiscoveredDevices(devices) {
+	            const list = document.getElementById('discoverList');
+	            list.innerHTML = '';
+	            const currentHost = normalizeHostForCompare(document.getElementById('host')?.value ?? '');
+
+	            if (!Array.isArray(devices) || devices.length === 0) {
+	                const empty = document.createElement('div');
+	                empty.textContent = 'No cameras found on the network.';
+	                list.appendChild(empty);
+	                return;
+	            }
+
+	            for (const device of devices) {
+	                const btn = document.createElement('button');
+	                btn.type = 'button';
+	                btn.className = 'device-item';
+	                if (currentHost && device.ip === currentHost) {
+	                    btn.classList.add('active');
+	                }
+	                btn.onclick = () => {
+	                    setHost(device.ip);
+	                    closeDiscoverModal();
+	                };
+
+	                const ipEl = document.createElement('div');
+	                ipEl.className = 'device-ip';
+	                ipEl.textContent = device.ip;
+
+	                const macEl = document.createElement('div');
+	                macEl.className = 'device-mac';
+	                macEl.textContent = device.mac || '';
+
+	                btn.appendChild(ipEl);
+	                btn.appendChild(macEl);
+	                list.appendChild(btn);
+	            }
+	        }
+
+	        async function discoverCameras() {
+	            if (discoveryInFlight) return;
+
+	            const detectBtn = document.getElementById('detectBtn');
+	            discoveryInFlight = true;
+	            if (detectBtn) detectBtn.disabled = true;
+
+	            try {
+	                setStatusBar('connected', 'Scanning for cameras...');
+	                const devices = await invoke('discover_devices', { timeoutMs: 3000 });
+	                if (Array.isArray(devices) && devices.length === 1) {
+	                    setHost(devices[0].ip);
+	                    return;
+	                }
+	                renderDiscoveredDevices(devices);
+	                openDiscoverModal();
+	                if (Array.isArray(devices) && devices.length > 1) {
+	                    setStatusBar('connected', `Found ${devices.length} cameras. Select one.`);
+	                } else {
+	                    setStatusBar('error', 'No cameras found on the network.');
+	                }
+	            } catch (error) {
+	                setStatusBar('error', 'Discovery failed: ' + error);
+	            } finally {
+	                discoveryInFlight = false;
+	                if (detectBtn && !isPolling) detectBtn.disabled = false;
+	            }
+	        }
+
+	        async function pollAlarms() {
+	            if (!isPolling || pollInFlight) return;
+	            pollInFlight = true;
+	            const host = document.getElementById('host').value;
+	            const password = document.getElementById('password').value;
+	            const username = getUsername();
+
+	            try {
+	                const result = await invoke('poll_all_alarms', { host, username, password });
+	                if (!isPolling) return;
+	                updateAllAlarms(result);
+	            } catch (error) {
+	                setStatusBar('error', 'Error: ' + error);
+	            } finally {
+	                pollInFlight = false;
+	            }
+	        }
+
+        async function toggleAlarm(num) {
+            if (sendingAlarms.has(num)) return;
+
+            const host = document.getElementById('host').value;
+            const password = document.getElementById('password').value;
+            const username = getUsername();
+            const checkbox = document.getElementById(`alarm-checkbox-${num}`);
+            const toggleLabel = document.getElementById(`alarm-toggle-${num}`);
+            const turnOn = checkbox.checked;
+
+            sendingAlarms.add(num);
+            checkbox.disabled = true;
+            toggleLabel.classList.add('sending');
+
+            try {
+                await invoke('set_alarm', { host, username, password, num, turnOn });
+            } catch (error) {
+                // Revert on error
+                checkbox.checked = !turnOn;
+                setStatusBar('error', `Failed to set alarm ${num}: ${error}`);
+            }
+
+            sendingAlarms.delete(num);
+            if (isPolling) {
+                checkbox.disabled = false;
+            }
+            toggleLabel.classList.remove('sending');
+        }
+
+        function updateAllAlarms(result) {
+            if (result.error) {
+                setStatusBar('error', result.error);
+            } else {
+                setStatusBar('connected', 'Connected - Monitoring 16 alarms');
+            }
+
+            for (const alarm of result.alarms) {
+                const card = document.getElementById(`alarm-card-${alarm.num}`);
+                const indicator = document.getElementById(`alarm-indicator-${alarm.num}`);
+                const checkbox = document.getElementById(`alarm-checkbox-${alarm.num}`);
+
+                // Update indicator
+                indicator.className = 'alarm-indicator ' + alarm.status;
+
+                // Update card class
+                card.className = 'alarm-card ' + alarm.status;
+
+                // Sync checkbox (only if not currently sending)
+                if (!sendingAlarms.has(alarm.num)) {
+                    checkbox.checked = alarm.status === 'on';
+                }
+            }
+        }
+
+        function setStatusBar(type, message) {
+            const bar = document.getElementById('statusBar');
+            bar.className = 'status-bar ' + type;
+            bar.textContent = message;
+        }
+
+	        function startPolling() {
+	            const host = document.getElementById('host').value;
+	            const password = document.getElementById('password').value;
+
+            if (!host || !password) {
+                setStatusBar('error', 'Please enter both host and password');
+                return;
+            }
+
+	            isPolling = true;
+		            document.getElementById('startBtn').disabled = true;
+		            document.getElementById('stopBtn').disabled = false;
+		            document.getElementById('host').disabled = true;
+		            document.getElementById('password').disabled = true;
+		            document.getElementById('detectBtn').disabled = true;
+
+	            // Enable all alarm toggles
+	            for (let i = 1; i <= 16; i++) {
+	                document.getElementById(`alarm-checkbox-${i}`).disabled = false;
+	            }
+
+	            setStatusBar('connected', `Connecting as ${getUsername()}...`);
+
+	            // Poll immediately, then every 2 seconds (16 requests takes time)
+	            pollAlarms();
+	            pollingInterval = setInterval(pollAlarms, 2000);
+	        }
+
+	        function stopPolling() {
+	            isPolling = false;
+	            if (pollingInterval) {
+	                clearInterval(pollingInterval);
+	                pollingInterval = null;
+	            }
+
+		            document.getElementById('startBtn').disabled = false;
+		            document.getElementById('stopBtn').disabled = true;
+		            document.getElementById('host').disabled = false;
+		            document.getElementById('password').disabled = false;
+		            document.getElementById('detectBtn').disabled = false;
+
+	            // Disable all alarm toggles and reset indicators
+	            for (let i = 1; i <= 16; i++) {
+	                document.getElementById(`alarm-checkbox-${i}`).disabled = true;
+                document.getElementById(`alarm-indicator-${i}`).className = 'alarm-indicator unknown';
+                document.getElementById(`alarm-card-${i}`).className = 'alarm-card';
+            }
+
+            setStatusBar('disconnected', 'Not Connected');
+        }
+
+	        // Initialize on load
+	        initAlarmCards();
+	        loadSavedUsername();
+	        document.getElementById('userToggle').addEventListener('change', saveUsername);
+	        document.getElementById('authorModal').addEventListener('click', (event) => {
+	            if (event.target === event.currentTarget) {
+	                closeAuthorModal();
+	            }
+	        });
+	        document.getElementById('discoverModal').addEventListener('click', (event) => {
+	            if (event.target === event.currentTarget) {
+	                closeDiscoverModal();
+	            }
+	        });
+	        document.addEventListener('keydown', (event) => {
+	            const modal = document.getElementById('authorModal');
+	            const discoverModal = document.getElementById('discoverModal');
+	            if (event.key !== 'Escape') return;
+	            if (modal && !modal.hidden) {
+	                closeAuthorModal();
+	            }
+	            if (discoverModal && !discoverModal.hidden) {
+	                closeDiscoverModal();
+	            }
+	        });
+	    </script>
+	</body>
+	</html>

@@ -1,0 +1,11 @@
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Updater signing keys (DO NOT COMMIT)
+src-tauri/keys/
+
+# OS / tooling
+.DS_Store
+Thumbs.db
+
