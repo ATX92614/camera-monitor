@@ -31,7 +31,7 @@ jobs:
           node-version: lts/*
 
       - name: Build and Release
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -43,4 +43,3 @@ jobs:
           releaseBody: "See the assets to download and install this version."
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
-
