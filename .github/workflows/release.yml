@@ -30,6 +30,9 @@ jobs:
         with:
           node-version: lts/*
 
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked --version "^2"
+
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -37,9 +40,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tauriScript: tauri
+          tauriScript: cargo-tauri
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseName: "Camera Alarm Monitor v__VERSION__"
           releaseBody: "See the assets to download and install this version."
-          uploadUpdaterJson: true
+          includeUpdaterJson: true
           updaterJsonPreferNsis: true
