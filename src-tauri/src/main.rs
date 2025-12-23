@@ -595,6 +595,7 @@ fn parse_result_hex(xml: &str) -> Option<String> {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             clients: Mutex::new(HashMap::new()),
             pending_update: Mutex::new(None),

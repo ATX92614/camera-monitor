@@ -840,7 +840,10 @@
 		                <div class="form-row">
 		                    <div class="form-group">
 		                        <label for="ftpRootDir">Storage folder (local):</label>
-		                        <input type="text" id="ftpRootDir" placeholder="e.g., C:\\Users\\Public\\Documents\\Camera Alarm Monitor\\Uploads" oninput="saveFtpSettings();">
+		                        <div class="host-input-row">
+		                            <input type="text" id="ftpRootDir" placeholder="e.g., C:\\Users\\Public\\Documents\\Camera Alarm Monitor\\Uploads" oninput="saveFtpSettings();">
+		                            <button type="button" class="detect" onclick="browseFtpRootDir()">Browse</button>
+		                        </div>
 		                    </div>
 		                </div>
 
@@ -1186,6 +1189,31 @@
 	                opt.textContent = 'Failed to load IPs';
 	                select.appendChild(opt);
 	                setFtpModalStatus('error', 'Failed to load local IPs: ' + error);
+	            }
+	        }
+
+	        async function browseFtpRootDir() {
+	            try {
+	                const current = document.getElementById('ftpRootDir')?.value || '';
+	                const options = {
+	                    title: 'Select uploads folder',
+	                    directory: true,
+	                    multiple: false,
+	                };
+	                if (current) {
+	                    options.defaultPath = current;
+	                }
+
+	                const selected = await invoke('plugin:dialog|open', { options });
+
+	                if (!selected) return;
+
+	                const folder = Array.isArray(selected) ? selected[0] : selected;
+	                const input = document.getElementById('ftpRootDir');
+	                if (input) input.value = folder;
+	                saveFtpSettings();
+	            } catch (error) {
+	                setFtpModalStatus('error', 'Folder picker failed: ' + error);
 	            }
 	        }
 
