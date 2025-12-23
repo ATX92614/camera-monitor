@@ -4,11 +4,11 @@
 
 Add an **embedded FTP server** to the Camera Alarm Monitor desktop app so Bosch cameras (or other devices) can upload files (snapshots/clips/logs) directly to the PC running the app.
 
-This is intended for **local/LAN usage** (e.g. camera → operator PC) to simplify “upload destination” setup.
+This is intended for **local/LAN usage** (e.g. camera -> operator PC) to simplify "upload destination" setup.
 
 ---
 
-## What “Minimum Viable” Looks Like
+## What "Minimum Viable" Looks Like
 
 ### User-facing requirements (minimum)
 
@@ -27,7 +27,7 @@ To run an FTP server that a camera can upload to, you typically need:
    - Many cameras/clients use **PASV/EPSV** (passive mode).
    - Minimum for a reliable LAN experience:
      - a **passive port range** (ex: `50000..=50100`) so firewall rules are manageable.
-     - a **passive host** (the IP the server advertises back to the client). On a single LAN this can be the PC’s LAN IP.
+     - a **passive host** (the IP the server advertises back to the client). On a single LAN this can be the PC's LAN IP.
 
 ### Network requirements (minimum)
 
@@ -37,6 +37,25 @@ To run an FTP server that a camera can upload to, you typically need:
 - If the camera and PC are on the same subnet and there is no NAT, this is usually straightforward.
 
 > Note: FTP is plaintext (credentials and data). If this must be secure, consider FTPS if the camera supports it.
+
+---
+
+## Active vs Passive FTP (How to Choose)
+
+FTP uses a control connection plus separate data connections. "Active vs passive" is about **who initiates the data connection**.
+
+- **Passive mode (PASV/EPSV)**: the **camera (client)** opens the data connection to the **server**.
+  - Recommended for most real-world LAN/NAT/firewall setups.
+  - Requires the server to have a configured **passive port range** and (sometimes) an **advertised IP**.
+- **Active mode (PORT)**: the **server** opens the data connection back to the **camera (client)**.
+  - Often fails when the camera is behind NAT/firewall or does not accept inbound connections.
+
+For this app's use-case (camera uploads to a PC running the embedded FTP server), the SOTA default is:
+
+- Configure the camera to use **Passive** mode (if the camera offers a choice).
+- Configure the app's FTP server with an explicit passive port range and open those ports in Windows Firewall.
+
+Bosch ATSL note: `ATSL_6.32__Special_all_23843870091.pdf` references "FTP Posting", but does not document PASV/EPSV or how to choose active vs passive mode.
 
 ---
 
@@ -57,7 +76,7 @@ Why this choice:
 
 ### App backend architecture
 
-Add a new “service” in `src-tauri/src/main.rs` (or a dedicated module later) with:
+Add a new "service" in `src-tauri/src/main.rs` (or a dedicated module later) with:
 
 - **State**
   - `running: bool`
@@ -72,7 +91,7 @@ Add a new “service” in `src-tauri/src/main.rs` (or a dedicated module later)
 
 ### Shutdown/stop behavior (important)
 
-`libunftp` supports a “shutdown indicator” future (`shutdown_indicator(...)`) which is ideal for a GUI app:
+`libunftp` supports a "shutdown indicator" future (`shutdown_indicator(...)`) which is ideal for a GUI app:
 
 - When user clicks **Stop**, send a message to the shutdown channel.
 - Server exits gracefully after a configured grace period.
@@ -89,7 +108,7 @@ Add a new “service” in `src-tauri/src/main.rs` (or a dedicated module later)
 
 Start simple:
 
-- The “root directory” is the FTP home.
+- The "root directory" is the FTP home.
 - Allow clients to create folders under it (optional).
 
 Later improvements (nice-to-have):
@@ -106,7 +125,7 @@ Add a new section labeled **FTP Upload Server** with:
 ### Configuration fields
 
 - `Port` (default 2121)
-- `Root folder` (text field + “Open folder” button)
+- `Root folder` (text field + "Open folder" button)
 - `Username`
 - `Password`
 - `Passive ports` (start/end)
@@ -125,7 +144,7 @@ Add a new section labeled **FTP Upload Server** with:
 
 ### UX convenience (high value)
 
-Show a “copy/paste block” that matches typical camera FTP config:
+Show a "copy/paste block" that matches typical camera FTP config:
 
 - Host: `PC_IP`
 - Port: `2121`
@@ -148,10 +167,10 @@ Settings you can store plainly:
 
 Secrets (username/password):
 
-Options (best → simplest):
+Options (best -> simplest):
 
 1. **OS keychain / encrypted store (best)**
-   - Use a secure storage plugin (e.g. Stronghold/keyring) so secrets aren’t stored as plaintext on disk.
+   - Use a secure storage plugin (e.g. Stronghold/keyring) so secrets aren't stored as plaintext on disk.
 2. **Hash the password (good compromise)**
    - Store only a password hash (Argon2). The user can set/reset it, but the app never stores the plaintext password.
 3. **Plaintext local config (simplest, least secure)**
@@ -177,4 +196,3 @@ Options (best → simplest):
    - FTPS?
 3. Do you need the app to **auto-configure** camera FTP settings via RCP, or just provide the server + instructions?
 4. Do uploads need to be organized per camera / per event type?
-

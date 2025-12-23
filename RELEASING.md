@@ -1,6 +1,6 @@
 # Releasing & Auto-Updates (Tauri + GitHub Releases)
 
-This app uses **Tauri v2’s updater plugin** to provide signed, in-app updates.
+This app uses **Tauri v2's updater plugin** to provide signed, in-app updates.
 
 At a high level:
 
@@ -21,7 +21,7 @@ At a high level:
   - Configured in `src-tauri/tauri.conf.json` under `plugins.updater.endpoints`.
 
 - **Updater keys:**
-  - Public key is embedded in the app config (`src-tauri/tauri.conf.json` → `plugins.updater.pubkey`).
+  - Public key is embedded in the app config (`src-tauri/tauri.conf.json` -> `plugins.updater.pubkey`).
   - Private key must remain secret and is stored in GitHub Actions secrets.
 
 - **Release workflow:**
@@ -45,11 +45,11 @@ cargo tauri signer generate -w keys\\updater.key
 - `keys/updater.key` is the **private key** (never commit it).
 - `keys/updater.key.pub` is the **public key** (safe to embed in the app).
 
-> Important: If the private key is lost, you can’t ship valid updates to existing installs.
+> Important: If the private key is lost, you can't ship valid updates to existing installs.
 
 ### 2) Configure GitHub Actions secrets (one time)
 
-GitHub repo → **Settings** → **Secrets and variables** → **Actions**:
+GitHub repo > **Settings** > **Secrets and variables** > **Actions**:
 
 - `TAURI_SIGNING_PRIVATE_KEY` = contents of `keys/updater.key`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = password used for the key (if any)
@@ -62,8 +62,8 @@ GitHub repo → **Settings** → **Secrets and variables** → **Actions**:
 
 Keep these in sync:
 
-- `src-tauri/Cargo.toml` → `[package].version`
-- `src-tauri/tauri.conf.json` → `version`
+- `src-tauri/Cargo.toml`: `[package].version`
+- `src-tauri/tauri.conf.json`: `version`
 
 Example: set both to `0.1.3`.
 
@@ -86,7 +86,7 @@ git push origin v0.1.3
 
 ### Step 4: Verify the GitHub Action succeeded
 
-On GitHub: **Actions** → `release` workflow.
+On GitHub: **Actions** > `release` workflow.
 
 It should publish a GitHub Release containing:
 
@@ -116,7 +116,7 @@ Confirm:
 
 ---
 
-## How the App Decides There’s an Update
+## How the App Decides There's an Update
 
 - The app reads the `latest.json` manifest.
 - If `latest.json.version` is newer than the installed version, the updater will:
@@ -129,14 +129,14 @@ Confirm:
 
 ## Common Failure Modes
 
-- **Workflow fails immediately at “Build and Release”:**
+- **Workflow fails immediately at \"Build and Release\":**
   - Usually a misconfigured action version or invalid input name in `.github/workflows/release.yml`.
 
 - **Build works but updater signatures are missing:**
   - Ensure `bundle.createUpdaterArtifacts` is enabled in `src-tauri/tauri.conf.json`.
   - Ensure GitHub secrets are set (`TAURI_SIGNING_PRIVATE_KEY` and password if used).
 
-- **App says “Update check failed”:**
+- **App says \"Update check failed\":**
   - Verify `latest.json` is accessible publicly.
   - Verify `plugins.updater.endpoints` points to the correct URL.
 
@@ -148,7 +148,6 @@ Confirm:
 
 ## Security Notes / Key Rotation
 
-- The updater’s **public key** is baked into the shipped app.
+- The updater's **public key** is baked into the shipped app.
 - Changing the public key later will break updates for existing installs unless you ship a special transition update.
 - Treat the private key like a production secret. Restrict who can access it.
-

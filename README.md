@@ -28,7 +28,7 @@ Keep `keys/updater.key` secret. The app ships with the public key in `src-tauri/
 
 ### 2) Add GitHub Secrets
 
-In your GitHub repo settings → Secrets and variables → Actions, add:
+In your GitHub repo settings > Secrets and variables > Actions, add:
 
 - `TAURI_SIGNING_PRIVATE_KEY` = contents of `keys/updater.key`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = the password used when generating the key (optional)
@@ -36,8 +36,8 @@ In your GitHub repo settings → Secrets and variables → Actions, add:
 ### 3) Create a release
 
 1. Bump versions (keep them in sync):
-   - `src-tauri/tauri.conf.json` → `version`
-   - `src-tauri/Cargo.toml` → `package.version`
+   - `src-tauri/tauri.conf.json`: `version`
+   - `src-tauri/Cargo.toml`: `package.version`
 2. Push a tag, e.g.:
 
 ```powershell
@@ -46,4 +46,3 @@ git push origin v0.1.1
 ```
 
 The workflow publishes a GitHub Release with installers + `latest.json` that the app can use to update.
-
