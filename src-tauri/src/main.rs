@@ -36,6 +36,27 @@ pub struct AllAlarmsStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct IoLayout {
+    pub inputs: Vec<u16>,
+    pub relays: Vec<u16>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IoPointStatus {
+    pub id: u16,
+    pub status: String, // "off", "on", "error", "unknown"
+    pub hex_value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IoStatusSnapshot {
+    pub inputs: Vec<IoPointStatus>,
+    pub relays: Vec<IoPointStatus>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DiscoveredDevice {
     pub ip: String,
     pub mac: String,
@@ -592,6 +613,299 @@ fn parse_result_hex(xml: &str) -> Option<String> {
     None
 }
 
+fn parse_hex_bytes(raw_hex: &str) -> Result<Vec<u8>, String> {
+    let trimmed = raw_hex.trim();
+    let without_prefix = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .unwrap_or(trimmed);
+
+    if !without_prefix.len().is_multiple_of(2) {
+        return Err(format!(
+            "Hex payload has odd length: {}",
+            without_prefix.len()
+        ));
+    }
+
+    let mut out = Vec::with_capacity(without_prefix.len() / 2);
+    for chunk in without_prefix.as_bytes().chunks(2) {
+        let s = std::str::from_utf8(chunk).map_err(|e| format!("Invalid hex chunk: {e}"))?;
+        let byte = u8::from_str_radix(s, 16).map_err(|e| format!("Invalid hex byte '{s}': {e}"))?;
+        out.push(byte);
+    }
+
+    Ok(out)
+}
+
+fn parse_capability_list_io_ids(payload: &[u8]) -> Result<(Vec<u16>, Vec<u16>), String> {
+    const MAGIC: u16 = 0xBABA;
+    const SECTION_TYPE_IO: u16 = 0x0004;
+    const IO_INPUT: u16 = 0x0001;
+    const IO_OUTPUT: u16 = 0x0002;
+
+    let mut offset = 0usize;
+    let read_u16 = |payload: &[u8], offset: &mut usize| -> Result<u16, String> {
+        let start = *offset;
+        let end = start + 2;
+        let bytes = payload
+            .get(start..end)
+            .ok_or_else(|| "Capability list truncated".to_string())?;
+        *offset = end;
+        Ok(u16::from_be_bytes([bytes[0], bytes[1]]))
+    };
+
+    let magic = read_u16(payload, &mut offset)?;
+    if magic != MAGIC {
+        return Err(format!("Unexpected capability list magic 0x{magic:04X}"));
+    }
+
+    let _version = read_u16(payload, &mut offset)?;
+    let num_sections = read_u16(payload, &mut offset)? as usize;
+
+    let mut inputs: Vec<u16> = Vec::new();
+    let mut outputs: Vec<u16> = Vec::new();
+
+    for _ in 0..num_sections {
+        let section_start = offset;
+        let section_type = read_u16(payload, &mut offset)?;
+        let section_size = read_u16(payload, &mut offset)? as usize;
+        let num_elements = read_u16(payload, &mut offset)? as usize;
+
+        if section_size < 6 {
+            return Err(format!("Invalid capability section size: {section_size}"));
+        }
+        let section_end = section_start
+            .checked_add(section_size)
+            .ok_or_else(|| "Capability section size overflow".to_string())?;
+        if section_end > payload.len() {
+            return Err("Capability section exceeds payload length".to_string());
+        }
+
+        if section_type == SECTION_TYPE_IO {
+            let mut element_offset = offset;
+            for _ in 0..num_elements {
+                if element_offset + 4 > section_end {
+                    break;
+                }
+                let element_type =
+                    u16::from_be_bytes([payload[element_offset], payload[element_offset + 1]]);
+                let identifier =
+                    u16::from_be_bytes([payload[element_offset + 2], payload[element_offset + 3]]);
+                match element_type {
+                    IO_INPUT => inputs.push(identifier),
+                    IO_OUTPUT => outputs.push(identifier),
+                    _ => {}
+                }
+                element_offset += 4;
+            }
+        }
+
+        offset = section_end;
+    }
+
+    inputs.sort_unstable();
+    inputs.dedup();
+    outputs.sort_unstable();
+    outputs.dedup();
+
+    Ok((inputs, outputs))
+}
+
+async fn poll_f_flag_points(
+    client: &reqwest::Client,
+    host: &str,
+    username: &str,
+    password: &str,
+    command: &str,
+    ids: Vec<u16>,
+) -> (Vec<IoPointStatus>, Option<String>) {
+    let mut points = Vec::new();
+    let mut global_error: Option<String> = None;
+
+    for id in ids {
+        let url = format!(
+            "https://{host}:443/rcp.xml?command={command}&type=F_FLAG&direction=READ&num={id}"
+        );
+
+        match make_authenticated_request(client, &url, username, password, Duration::from_secs(10))
+            .await
+        {
+            Ok((text, status_code)) => {
+                if status_code == 401 {
+                    global_error =
+                        Some("Authentication failed (401). Check credentials.".to_string());
+                    points.push(IoPointStatus {
+                        id,
+                        status: "error".to_string(),
+                        hex_value: "N/A".to_string(),
+                    });
+                    continue;
+                }
+
+                if let Some(hex_value) = parse_result_hex(&text) {
+                    let status = if hex_value == "0x00" {
+                        "off"
+                    } else if hex_value == "0x01" {
+                        "on"
+                    } else {
+                        "unknown"
+                    };
+                    points.push(IoPointStatus {
+                        id,
+                        status: status.to_string(),
+                        hex_value,
+                    });
+                    continue;
+                }
+
+                points.push(IoPointStatus {
+                    id,
+                    status: "unknown".to_string(),
+                    hex_value: "N/A".to_string(),
+                });
+            }
+            Err(e) => {
+                if global_error.is_none() {
+                    global_error = Some(e);
+                }
+                points.push(IoPointStatus {
+                    id,
+                    status: "error".to_string(),
+                    hex_value: "N/A".to_string(),
+                });
+            }
+        }
+    }
+
+    (points, global_error)
+}
+
+#[tauri::command]
+async fn get_io_layout(
+    state: tauri::State<'_, AppState>,
+    host: String,
+    username: String,
+    password: String,
+) -> Result<IoLayout, String> {
+    let host = normalize_host(&host)?;
+    let client = get_or_create_client(&state, &host, &username, &password)?;
+
+    let url = format!("https://{host}:443/rcp.xml?command=0xff10&type=P_OCTET&direction=READ");
+    let (text, status_code) =
+        make_authenticated_request(&client, &url, &username, &password, Duration::from_secs(10))
+            .await?;
+
+    if status_code == 401 {
+        return Ok(IoLayout {
+            inputs: Vec::new(),
+            relays: Vec::new(),
+            error: Some("Authentication failed (401). Check credentials.".to_string()),
+        });
+    }
+
+    if status_code != 200 {
+        return Ok(IoLayout {
+            inputs: Vec::new(),
+            relays: Vec::new(),
+            error: Some(format!(
+                "Failed to read capability list (HTTP {status_code})."
+            )),
+        });
+    }
+
+    let Some(hex) = parse_result_hex(&text) else {
+        return Ok(IoLayout {
+            inputs: Vec::new(),
+            relays: Vec::new(),
+            error: Some("No <hex> result found for capability list.".to_string()),
+        });
+    };
+
+    let bytes = match parse_hex_bytes(&hex) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            return Ok(IoLayout {
+                inputs: Vec::new(),
+                relays: Vec::new(),
+                error: Some(format!("Failed to parse capability list hex: {e}")),
+            });
+        }
+    };
+
+    let (inputs, outputs) = match parse_capability_list_io_ids(&bytes) {
+        Ok((inputs, outputs)) => (inputs, outputs),
+        Err(e) => {
+            return Ok(IoLayout {
+                inputs: Vec::new(),
+                relays: Vec::new(),
+                error: Some(format!("Failed to parse capability list: {e}")),
+            });
+        }
+    };
+
+    Ok(IoLayout {
+        inputs,
+        relays: outputs,
+        error: None,
+    })
+}
+
+#[tauri::command]
+async fn poll_io(
+    state: tauri::State<'_, AppState>,
+    host: String,
+    username: String,
+    password: String,
+    input_ids: Vec<u16>,
+    relay_ids: Vec<u16>,
+) -> Result<IoStatusSnapshot, String> {
+    let host = normalize_host(&host)?;
+    let client = get_or_create_client(&state, &host, &username, &password)?;
+
+    let (inputs, input_error) =
+        poll_f_flag_points(&client, &host, &username, &password, "0x01c0", input_ids).await;
+    let (relays, relay_error) =
+        poll_f_flag_points(&client, &host, &username, &password, "0x01c1", relay_ids).await;
+    let global_error = input_error.or(relay_error);
+
+    Ok(IoStatusSnapshot {
+        inputs,
+        relays,
+        error: global_error,
+    })
+}
+
+#[tauri::command]
+async fn set_relay_output(
+    state: tauri::State<'_, AppState>,
+    host: String,
+    username: String,
+    password: String,
+    id: u16,
+    turn_on: bool,
+) -> Result<String, String> {
+    let payload = if turn_on { "1" } else { "0" };
+    let host = normalize_host(&host)?;
+    let url = format!(
+        "https://{host}:443/rcp.xml?command=0x01c1&type=F_FLAG&direction=WRITE&num={id}&payload={payload}"
+    );
+
+    let client = get_or_create_client(&state, &host, &username, &password)?;
+
+    let (text, status_code) =
+        make_authenticated_request(&client, &url, &username, &password, Duration::from_secs(5))
+            .await?;
+
+    if status_code == 200 {
+        let state = if turn_on { "ON" } else { "OFF" };
+        Ok(format!("Relay {id} set to {state}"))
+    } else {
+        Err(format!(
+            "Failed to set relay {id} (HTTP {status_code}): {text}"
+        ))
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -604,6 +918,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             poll_all_alarms,
             set_alarm,
+            get_io_layout,
+            poll_io,
+            set_relay_output,
             discover_devices,
             get_local_ipv4_addresses,
             get_ftp_server_status,
@@ -614,4 +931,30 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_capability_list_io_ids, parse_hex_bytes};
+
+    #[test]
+    fn parse_hex_bytes_accepts_optional_prefix() {
+        assert_eq!(parse_hex_bytes("0x0A0b").unwrap(), vec![0x0A, 0x0B]);
+        assert_eq!(parse_hex_bytes("0A0B").unwrap(), vec![0x0A, 0x0B]);
+    }
+
+    #[test]
+    fn parse_capability_list_io_ids_extracts_io_section() {
+        // Magic (0xBABA), Version (0x0001), Num Sections (0x0001)
+        // Section: Type IO (0x0004), Size (6 + 3*4 = 18), Num Elements (3)
+        // Elements: IO_INPUT id 1, IO_OUTPUT id 2, IO_OUTPUT id 3
+        let payload = vec![
+            0xBA, 0xBA, 0x00, 0x01, 0x00, 0x01, 0x00, 0x04, 0x00, 0x12, 0x00, 0x03, 0x00, 0x01,
+            0x00, 0x01, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x00, 0x03,
+        ];
+
+        let (inputs, outputs) = parse_capability_list_io_ids(&payload).unwrap();
+        assert_eq!(inputs, vec![1]);
+        assert_eq!(outputs, vec![2, 3]);
+    }
 }

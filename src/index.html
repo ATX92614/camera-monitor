@@ -768,6 +768,16 @@
 	                <!-- Alarm cards will be generated here -->
 	            </div>
 	        </div>
+
+	        <div class="alarms-section" id="inputsSection" hidden>
+	            <h3 id="inputsTitle">Inputs</h3>
+	            <div class="alarms-grid" id="inputsGrid"></div>
+	        </div>
+
+	        <div class="alarms-section" id="relaysSection" hidden>
+	            <h3 id="relaysTitle">Relays</h3>
+	            <div class="alarms-grid" id="relaysGrid"></div>
+	        </div>
 	    </div>
 
 		    <div class="modal-overlay" id="authorModal" role="dialog" aria-modal="true" aria-labelledby="authorModalTitle" hidden>
@@ -897,6 +907,8 @@
 		            let updateInstallInFlight = false;
 		            let ftpActionInFlight = false;
 		            let sendingAlarms = new Set();
+		            let ioLayout = null;
+		            let sendingRelays = new Set();
 		            const USERNAME_STORAGE_KEY = 'camera-monitor.username';
 		            const FTP_SETTINGS_STORAGE_KEY = 'camera-monitor.ftpSettings';
 		            const DEFAULT_FTP_SETTINGS = {
@@ -927,6 +939,86 @@
                 `;
                 grid.appendChild(card);
             }
+        }
+
+        function clearIoCards() {
+            const inputsGrid = document.getElementById('inputsGrid');
+            const relaysGrid = document.getElementById('relaysGrid');
+            if (inputsGrid) inputsGrid.innerHTML = '';
+            if (relaysGrid) relaysGrid.innerHTML = '';
+
+            const inputsSection = document.getElementById('inputsSection');
+            const relaysSection = document.getElementById('relaysSection');
+            if (inputsSection) inputsSection.hidden = true;
+            if (relaysSection) relaysSection.hidden = true;
+
+            const inputsTitle = document.getElementById('inputsTitle');
+            const relaysTitle = document.getElementById('relaysTitle');
+            if (inputsTitle) inputsTitle.textContent = 'Inputs';
+            if (relaysTitle) relaysTitle.textContent = 'Relays';
+
+            ioLayout = null;
+            sendingRelays.clear();
+        }
+
+        function initInputCards(inputIds) {
+            const section = document.getElementById('inputsSection');
+            const grid = document.getElementById('inputsGrid');
+            const title = document.getElementById('inputsTitle');
+            if (!section || !grid || !title) return;
+
+            grid.innerHTML = '';
+            if (!Array.isArray(inputIds) || inputIds.length === 0) {
+                section.hidden = true;
+                title.textContent = 'Inputs';
+                return;
+            }
+
+            title.textContent = `Inputs (1-${inputIds.length})`;
+            section.hidden = false;
+
+            inputIds.forEach((id, idx) => {
+                const card = document.createElement('div');
+                card.className = 'alarm-card';
+                card.id = `input-card-${id}`;
+                card.innerHTML = `
+                    <div class="alarm-num">Input ${idx + 1}</div>
+                    <div class="alarm-indicator unknown" id="input-indicator-${id}"></div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function initRelayCards(relayIds) {
+            const section = document.getElementById('relaysSection');
+            const grid = document.getElementById('relaysGrid');
+            const title = document.getElementById('relaysTitle');
+            if (!section || !grid || !title) return;
+
+            grid.innerHTML = '';
+            if (!Array.isArray(relayIds) || relayIds.length === 0) {
+                section.hidden = true;
+                title.textContent = 'Relays';
+                return;
+            }
+
+            title.textContent = `Relays (1-${relayIds.length})`;
+            section.hidden = false;
+
+            relayIds.forEach((id, idx) => {
+                const card = document.createElement('div');
+                card.className = 'alarm-card';
+                card.id = `relay-card-${id}`;
+                card.innerHTML = `
+                    <div class="alarm-num">Relay ${idx + 1}</div>
+                    <div class="alarm-indicator unknown" id="relay-indicator-${id}"></div>
+                    <label class="alarm-toggle" id="relay-toggle-${id}">
+                        <input type="checkbox" id="relay-checkbox-${id}" onchange="toggleRelay(${id})" disabled>
+                        <span class="alarm-toggle-slider"></span>
+                    </label>
+                `;
+                grid.appendChild(card);
+            });
         }
 
 	        function getUsername() {
@@ -1411,7 +1503,7 @@
 	            }
 	        }
 
-	        async function pollAlarms() {
+	        async function pollAllStatus() {
 	            if (!isPolling || pollInFlight) return;
 	            pollInFlight = true;
 	            const host = document.getElementById('host').value;
@@ -1419,9 +1511,23 @@
 	            const username = getUsername();
 
 	            try {
-	                const result = await invoke('poll_all_alarms', { host, username, password });
+	                const alarmsPromise = invoke('poll_all_alarms', { host, username, password });
+	                const ioPromise = ioLayout
+	                    ? invoke('poll_io', {
+	                          host,
+	                          username,
+	                          password,
+	                          inputIds: ioLayout.inputs ?? [],
+	                          relayIds: ioLayout.relays ?? [],
+	                      })
+	                    : Promise.resolve(null);
+
+	                const [alarmResult, ioResult] = await Promise.all([alarmsPromise, ioPromise]);
 	                if (!isPolling) return;
-	                updateAllAlarms(result);
+
+	                updateAllAlarms(alarmResult);
+	                if (ioResult) updateAllIo(ioResult);
+	                updateConnectionStatus(alarmResult, ioResult);
 	            } catch (error) {
 	                setStatusBar('error', 'Error: ' + error);
 	            } finally {
@@ -1458,13 +1564,59 @@
             toggleLabel.classList.remove('sending');
         }
 
-        function updateAllAlarms(result) {
-            if (result.error) {
-                setStatusBar('error', result.error);
-            } else {
-                setStatusBar('connected', 'Connected - Monitoring 16 alarms');
+        async function toggleRelay(id) {
+            if (sendingRelays.has(id)) return;
+
+            const host = document.getElementById('host').value;
+            const password = document.getElementById('password').value;
+            const username = getUsername();
+            const checkbox = document.getElementById(`relay-checkbox-${id}`);
+            const toggleLabel = document.getElementById(`relay-toggle-${id}`);
+            const turnOn = checkbox.checked;
+
+            sendingRelays.add(id);
+            checkbox.disabled = true;
+            toggleLabel.classList.add('sending');
+
+            try {
+                await invoke('set_relay_output', { host, username, password, id, turnOn });
+            } catch (error) {
+                checkbox.checked = !turnOn;
+                setStatusBar('error', `Failed to set relay ${id}: ${error}`);
             }
 
+            sendingRelays.delete(id);
+            if (isPolling) {
+                checkbox.disabled = false;
+            }
+            toggleLabel.classList.remove('sending');
+        }
+
+        function updateConnectionStatus(alarmResult, ioResult) {
+            const alarmError = alarmResult?.error ?? null;
+            const ioError = ioResult?.error ?? null;
+            if (alarmError || ioError) {
+                setStatusBar('error', alarmError || ioError);
+                return;
+            }
+
+            if (!ioLayout) {
+                setStatusBar('connected', 'Connected - VA: 16 | I/O: not loaded');
+                return;
+            }
+
+            const inputCount = ioLayout.inputs?.length ?? 0;
+            const relayCount = ioLayout.relays?.length ?? 0;
+            const layoutWarning = ioLayout.error ?? null;
+
+            const message = layoutWarning
+                ? `Connected - VA: 16 | I/O unavailable: ${layoutWarning}`
+                : `Connected - VA: 16 | Inputs: ${inputCount} | Relays: ${relayCount}`;
+
+            setStatusBar('connected', message);
+        }
+
+        function updateAllAlarms(result) {
             for (const alarm of result.alarms) {
                 const card = document.getElementById(`alarm-card-${alarm.num}`);
                 const indicator = document.getElementById(`alarm-indicator-${alarm.num}`);
@@ -1483,13 +1635,38 @@
             }
         }
 
+        function updateAllIo(result) {
+            for (const input of result.inputs ?? []) {
+                const card = document.getElementById(`input-card-${input.id}`);
+                const indicator = document.getElementById(`input-indicator-${input.id}`);
+                if (!card || !indicator) continue;
+
+                indicator.className = 'alarm-indicator ' + input.status;
+                card.className = 'alarm-card ' + input.status;
+            }
+
+            for (const relay of result.relays ?? []) {
+                const card = document.getElementById(`relay-card-${relay.id}`);
+                const indicator = document.getElementById(`relay-indicator-${relay.id}`);
+                const checkbox = document.getElementById(`relay-checkbox-${relay.id}`);
+                if (!card || !indicator || !checkbox) continue;
+
+                indicator.className = 'alarm-indicator ' + relay.status;
+                card.className = 'alarm-card ' + relay.status;
+
+                if (!sendingRelays.has(relay.id)) {
+                    checkbox.checked = relay.status === 'on';
+                }
+            }
+        }
+
         function setStatusBar(type, message) {
             const bar = document.getElementById('statusBar');
             bar.className = 'status-bar ' + type;
             bar.textContent = message;
         }
 
-	        function startPolling() {
+	        async function startPolling() {
 	            const host = document.getElementById('host').value;
 	            const password = document.getElementById('password').value;
 
@@ -1512,9 +1689,30 @@
 
 	            setStatusBar('connected', `Connecting as ${getUsername()}...`);
 
+	            clearIoCards();
+	            try {
+	                const username = getUsername();
+	                const layout = await invoke('get_io_layout', { host, username, password });
+	                if (!isPolling) return;
+
+	                ioLayout = layout;
+	                initInputCards(layout.inputs ?? []);
+	                initRelayCards(layout.relays ?? []);
+
+	                for (const id of layout.relays ?? []) {
+	                    const checkbox = document.getElementById(`relay-checkbox-${id}`);
+	                    if (checkbox) checkbox.disabled = false;
+	                }
+	            } catch (error) {
+	                ioLayout = null;
+	                initInputCards([]);
+	                initRelayCards([]);
+	                setStatusBar('error', `Failed to read I/O layout: ${error}`);
+	            }
+
 	            // Poll immediately, then every 2 seconds (16 requests takes time)
-	            pollAlarms();
-	            pollingInterval = setInterval(pollAlarms, 2000);
+	            pollAllStatus();
+	            pollingInterval = setInterval(pollAllStatus, 2000);
 	        }
 
 	        function stopPolling() {
@@ -1537,11 +1735,14 @@
                 document.getElementById(`alarm-card-${i}`).className = 'alarm-card';
             }
 
+            clearIoCards();
+
             setStatusBar('disconnected', 'Not Connected');
         }
 
 	        // Initialize on load
 	        initAlarmCards();
+            clearIoCards();
 	        loadSavedUsername();
 	        document.getElementById('userToggle').addEventListener('change', saveUsername);
 	        document.getElementById('authorModal').addEventListener('click', (event) => {
