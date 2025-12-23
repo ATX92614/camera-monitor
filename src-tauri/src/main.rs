@@ -613,6 +613,33 @@ fn parse_result_hex(xml: &str) -> Option<String> {
     None
 }
 
+fn parse_result_hex_or_str(xml: &str) -> Option<String> {
+    if let Some(hex) = parse_result_hex(xml) {
+        return Some(hex);
+    }
+
+    // Some commands (notably CONF_CAPABILITY_LIST / 0xff10) return their payload in <str>
+    // as space-separated bytes, not in <hex>.
+    if let Some(result_start) = xml.find("<result>") {
+        if let Some(result_end) = xml[result_start..].find("</result>") {
+            let result_section = &xml[result_start..result_start + result_end];
+
+            if let Some(str_start) = result_section.find("<str>") {
+                let str_content_start = str_start + 5;
+                if let Some(str_end) = result_section[str_content_start..].find("</str>") {
+                    let str_value =
+                        result_section[str_content_start..str_content_start + str_end].trim();
+                    if !str_value.is_empty() {
+                        return Some(str_value.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 fn parse_hex_bytes(raw_hex: &str) -> Result<Vec<u8>, String> {
     let trimmed = raw_hex.trim();
     let without_prefix = trimmed
@@ -620,15 +647,23 @@ fn parse_hex_bytes(raw_hex: &str) -> Result<Vec<u8>, String> {
         .or_else(|| trimmed.strip_prefix("0X"))
         .unwrap_or(trimmed);
 
-    if !without_prefix.len().is_multiple_of(2) {
-        return Err(format!(
-            "Hex payload has odd length: {}",
-            without_prefix.len()
-        ));
+    let mut hex_digits = String::with_capacity(without_prefix.len());
+    for ch in without_prefix.chars() {
+        if ch.is_ascii_hexdigit() {
+            hex_digits.push(ch);
+        }
     }
 
-    let mut out = Vec::with_capacity(without_prefix.len() / 2);
-    for chunk in without_prefix.as_bytes().chunks(2) {
+    if hex_digits.is_empty() {
+        return Err("Hex payload contains no hex digits".to_string());
+    }
+
+    if !hex_digits.len().is_multiple_of(2) {
+        return Err(format!("Hex payload has odd length: {}", hex_digits.len()));
+    }
+
+    let mut out = Vec::with_capacity(hex_digits.len() / 2);
+    for chunk in hex_digits.as_bytes().chunks(2) {
         let s = std::str::from_utf8(chunk).map_err(|e| format!("Invalid hex chunk: {e}"))?;
         let byte = u8::from_str_radix(s, 16).map_err(|e| format!("Invalid hex byte '{s}': {e}"))?;
         out.push(byte);
@@ -813,15 +848,15 @@ async fn get_io_layout(
         });
     }
 
-    let Some(hex) = parse_result_hex(&text) else {
+    let Some(hex_or_str) = parse_result_hex_or_str(&text) else {
         return Ok(IoLayout {
             inputs: Vec::new(),
             relays: Vec::new(),
-            error: Some("No <hex> result found for capability list.".to_string()),
+            error: Some("No <hex> or <str> result found for capability list.".to_string()),
         });
     };
 
-    let bytes = match parse_hex_bytes(&hex) {
+    let bytes = match parse_hex_bytes(&hex_or_str) {
         Ok(bytes) => bytes,
         Err(e) => {
             return Ok(IoLayout {
@@ -941,6 +976,14 @@ mod tests {
     fn parse_hex_bytes_accepts_optional_prefix() {
         assert_eq!(parse_hex_bytes("0x0A0b").unwrap(), vec![0x0A, 0x0B]);
         assert_eq!(parse_hex_bytes("0A0B").unwrap(), vec![0x0A, 0x0B]);
+    }
+
+    #[test]
+    fn parse_hex_bytes_accepts_space_separated_bytes() {
+        assert_eq!(
+            parse_hex_bytes("ba ba 00 01").unwrap(),
+            vec![0xBA, 0xBA, 0x00, 0x01]
+        );
     }
 
     #[test]
