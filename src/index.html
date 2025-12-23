@@ -148,7 +148,9 @@
         }
 
         input[type="text"],
-        input[type="password"] {
+        input[type="password"],
+        input[type="number"],
+        select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid rgba(255, 255, 255, 0.14);
@@ -161,11 +163,24 @@
         }
 
         input[type="text"]:focus,
-        input[type="password"]:focus {
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        select:focus {
             outline: 1px solid rgba(110, 246, 255, 0.55);
             border-color: rgba(110, 246, 255, 0.6);
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
                 0 0 0 3px rgba(92, 194, 255, 0.15);
+        }
+
+        select {
+            appearance: none;
+            background-image: linear-gradient(45deg, transparent 50%, rgba(229, 236, 255, 0.55) 50%),
+                linear-gradient(135deg, rgba(229, 236, 255, 0.55) 50%, transparent 50%);
+            background-position: calc(100% - 18px) calc(50% - 4px),
+                calc(100% - 12px) calc(50% - 4px);
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            padding-right: 34px;
         }
 
         input::placeholder {
@@ -550,6 +565,10 @@
             padding: 18px;
         }
 
+        .modal.modal-wide {
+            max-width: 560px;
+        }
+
         .modal-header {
             display: flex;
             align-items: center;
@@ -603,6 +622,7 @@
             display: flex;
             justify-content: flex-end;
             margin-top: 16px;
+            gap: 10px;
         }
 
         .modal-actions button {
@@ -611,6 +631,19 @@
             background: rgba(229, 236, 255, 0.06);
             border: 1px solid rgba(229, 236, 255, 0.14);
             box-shadow: none;
+        }
+
+        .modal-actions button.start {
+            background: linear-gradient(120deg, #39d98a, #5ad0ff);
+            border-color: rgba(57, 217, 138, 0.55);
+            color: #0b1426;
+            box-shadow: 0 14px 38px rgba(72, 224, 255, 0.18);
+        }
+
+        .modal-actions button.stop {
+            background: linear-gradient(120deg, #ff5460, rgba(255, 180, 84, 0.5));
+            border-color: rgba(255, 84, 96, 0.55);
+            color: #0b1426;
         }
 
         .device-list {
@@ -655,6 +688,26 @@
                 "Liberation Mono", "Courier New", monospace;
         }
 
+        .modal-help {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .config-block {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(229, 236, 255, 0.12);
+            background: rgba(229, 236, 255, 0.04);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: rgba(229, 236, 255, 0.85);
+            white-space: pre-wrap;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             *,
             *::before,
@@ -672,6 +725,7 @@
 	            <h1 class="app-title">Camera Virtual Alarm Monitor</h1>
 	            <div class="top-bar-actions">
 	                <button type="button" id="updateBtn" onclick="checkForUpdates()">Updates</button>
+	                <button type="button" id="ftpBtn" onclick="openFtpModal()">FTP</button>
 	                <button type="button" id="authorBtn" onclick="openAuthorModal()">Author</button>
 	            </div>
 	        </div>
@@ -760,6 +814,75 @@
 		        </div>
 		    </div>
 
+		    <div class="modal-overlay" id="ftpModal" role="dialog" aria-modal="true" aria-labelledby="ftpModalTitle" hidden>
+		        <div class="modal modal-wide" role="document">
+		            <div class="modal-header">
+		                <h2 class="modal-title" id="ftpModalTitle">FTP Upload Server</h2>
+		                <button type="button" class="modal-close" id="ftpModalClose" aria-label="Close" onclick="closeFtpModal()">&times;</button>
+		            </div>
+		            <div class="modal-body">
+		                <div class="status-bar disconnected" id="ftpModalStatus">Stopped</div>
+
+		                <div class="form-row" style="margin-top: 14px;">
+		                    <div class="form-group">
+		                        <label for="ftpServerIp">Server IP (camera setting):</label>
+		                        <div class="host-input-row">
+		                            <select id="ftpServerIp" onchange="saveFtpSettings(); renderFtpPreview();"></select>
+		                            <button type="button" class="detect" onclick="refreshLocalIps()">Refresh</button>
+		                        </div>
+		                    </div>
+		                    <div class="form-group small" style="min-width: 120px;">
+		                        <label for="ftpPort">Port:</label>
+		                        <input type="number" id="ftpPort" min="1" max="65535" onchange="saveFtpSettings(); renderFtpPreview();">
+		                    </div>
+		                </div>
+
+		                <div class="form-row">
+		                    <div class="form-group">
+		                        <label for="ftpRootDir">Storage folder (local):</label>
+		                        <input type="text" id="ftpRootDir" placeholder="e.g., C:\\Users\\Public\\Documents\\Camera Alarm Monitor\\Uploads" oninput="saveFtpSettings();">
+		                    </div>
+		                </div>
+
+		                <div class="form-row">
+		                    <div class="form-group">
+		                        <label for="ftpUsername">Login:</label>
+		                        <input type="text" id="ftpUsername" placeholder="e.g., atxfp" oninput="saveFtpSettings(); renderFtpPreview();">
+		                    </div>
+		                    <div class="form-group">
+		                        <label for="ftpPassword">Password:</label>
+		                        <input type="password" id="ftpPassword" placeholder="Password used by the camera" oninput="saveFtpSettings(); renderFtpPreview();">
+		                    </div>
+		                </div>
+
+		                <div class="form-row">
+		                    <div class="form-group">
+		                        <label>Passive ports (server setting):</label>
+		                        <div class="host-input-row">
+		                            <input type="number" id="ftpPasvStart" min="1" max="65535" style="max-width: 140px;" onchange="saveFtpSettings();">
+		                            <div style="padding-top: 6px; color: var(--text-muted); font-size: 12px;">to</div>
+		                            <input type="number" id="ftpPasvEnd" min="1" max="65535" style="max-width: 140px;" onchange="saveFtpSettings();">
+		                            <label style="display: flex; align-items: center; gap: 8px; margin: 0; padding-top: 6px; font-size: 12px; color: var(--text-dim);">
+		                                <input type="checkbox" id="ftpEnableActive" onchange="saveFtpSettings();"> Enable active mode
+		                            </label>
+		                        </div>
+		                    </div>
+		                </div>
+
+		                <div class="modal-help">
+		                    Camera "Encryption" must be OFF (plain FTP). Passive mode is the default/recommended; active mode is rarely needed.
+		                </div>
+
+		                <div class="config-block" id="ftpPreview"></div>
+		            </div>
+		            <div class="modal-actions">
+		                <button type="button" id="ftpStartBtn" class="start" onclick="startFtpServer()">Start</button>
+		                <button type="button" id="ftpStopBtn" class="stop" onclick="stopFtpServer()" hidden>Stop</button>
+		                <button type="button" onclick="closeFtpModal()">Close</button>
+		            </div>
+		        </div>
+		    </div>
+
 		        <script>
 		            const { invoke } = window.__TAURI__.core;
 
@@ -769,8 +892,19 @@
 		            let discoveryInFlight = false;
 		            let updateCheckInFlight = false;
 		            let updateInstallInFlight = false;
+		            let ftpActionInFlight = false;
 		            let sendingAlarms = new Set();
 		            const USERNAME_STORAGE_KEY = 'camera-monitor.username';
+		            const FTP_SETTINGS_STORAGE_KEY = 'camera-monitor.ftpSettings';
+		            const DEFAULT_FTP_SETTINGS = {
+		                serverIp: '',
+		                port: 21,
+		                rootDir: 'C:\\\\Users\\\\Public\\\\Documents\\\\Camera Alarm Monitor\\\\Uploads',
+		                username: '',
+		                passiveStart: 50000,
+		                passiveEnd: 50100,
+		                enableActiveMode: false,
+		            };
 
         // Initialize alarm cards
         function initAlarmCards() {
@@ -933,6 +1067,237 @@
 	            modal.hidden = true;
 	            if (lastFocusedElementDiscover && typeof lastFocusedElementDiscover.focus === 'function') {
 	                lastFocusedElementDiscover.focus();
+	            }
+	        }
+
+	        let lastFocusedElementFtp = null;
+	        async function openFtpModal() {
+	            const modal = document.getElementById('ftpModal');
+	            if (!modal) return;
+	            lastFocusedElementFtp = document.activeElement;
+	            modal.hidden = false;
+
+	            await refreshLocalIps();
+	            loadFtpSettings();
+	            renderFtpPreview();
+	            await refreshFtpStatus();
+
+	            const closeBtn = document.getElementById('ftpModalClose');
+	            if (closeBtn) closeBtn.focus();
+	        }
+
+	        function closeFtpModal() {
+	            const modal = document.getElementById('ftpModal');
+	            if (!modal) return;
+	            modal.hidden = true;
+	            if (lastFocusedElementFtp && typeof lastFocusedElementFtp.focus === 'function') {
+	                lastFocusedElementFtp.focus();
+	            }
+	        }
+
+	        function setFtpModalStatus(type, message) {
+	            const bar = document.getElementById('ftpModalStatus');
+	            if (!bar) return;
+	            bar.className = 'status-bar ' + type;
+	            bar.textContent = message;
+	        }
+
+	        function getFtpSettingsFromStorage() {
+	            try {
+	                const raw = localStorage.getItem(FTP_SETTINGS_STORAGE_KEY);
+	                if (!raw) return { ...DEFAULT_FTP_SETTINGS };
+	                const parsed = JSON.parse(raw);
+	                // Don't persist sensitive values like passwords in localStorage.
+	                const { password: _ignored, ...safeParsed } = parsed ?? {};
+	                return { ...DEFAULT_FTP_SETTINGS, ...safeParsed };
+	            } catch {
+	                return { ...DEFAULT_FTP_SETTINGS };
+	            }
+	        }
+
+	        function saveFtpSettings() {
+	            const settings = {
+	                serverIp: document.getElementById('ftpServerIp')?.value || '',
+	                port: Number(document.getElementById('ftpPort')?.value || DEFAULT_FTP_SETTINGS.port),
+	                rootDir: document.getElementById('ftpRootDir')?.value || DEFAULT_FTP_SETTINGS.rootDir,
+	                username: document.getElementById('ftpUsername')?.value || '',
+	                passiveStart: Number(document.getElementById('ftpPasvStart')?.value || DEFAULT_FTP_SETTINGS.passiveStart),
+	                passiveEnd: Number(document.getElementById('ftpPasvEnd')?.value || DEFAULT_FTP_SETTINGS.passiveEnd),
+	                enableActiveMode: Boolean(document.getElementById('ftpEnableActive')?.checked),
+	            };
+	            localStorage.setItem(FTP_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+	        }
+
+	        function loadFtpSettings() {
+	            const settings = getFtpSettingsFromStorage();
+	            const rootDir = document.getElementById('ftpRootDir');
+	            const port = document.getElementById('ftpPort');
+	            const username = document.getElementById('ftpUsername');
+	            const pasvStart = document.getElementById('ftpPasvStart');
+	            const pasvEnd = document.getElementById('ftpPasvEnd');
+	            const enableActive = document.getElementById('ftpEnableActive');
+
+	            if (rootDir) rootDir.value = settings.rootDir || DEFAULT_FTP_SETTINGS.rootDir;
+	            if (port) port.value = String(settings.port || DEFAULT_FTP_SETTINGS.port);
+	            if (username) username.value = settings.username || '';
+	            if (pasvStart) pasvStart.value = String(settings.passiveStart || DEFAULT_FTP_SETTINGS.passiveStart);
+	            if (pasvEnd) pasvEnd.value = String(settings.passiveEnd || DEFAULT_FTP_SETTINGS.passiveEnd);
+	            if (enableActive) enableActive.checked = Boolean(settings.enableActiveMode);
+
+	            const serverIp = document.getElementById('ftpServerIp');
+	            if (serverIp && settings.serverIp) {
+	                const option = Array.from(serverIp.options).find((o) => o.value === settings.serverIp);
+	                if (option) serverIp.value = settings.serverIp;
+	            }
+	        }
+
+	        async function refreshLocalIps() {
+	            const select = document.getElementById('ftpServerIp');
+	            if (!select) return;
+
+	            try {
+	                const ips = await invoke('get_local_ipv4_addresses');
+	                const previous = select.value;
+	                select.innerHTML = '';
+
+	                if (!Array.isArray(ips) || ips.length === 0) {
+	                    const opt = document.createElement('option');
+	                    opt.value = '';
+	                    opt.textContent = 'No IPv4 addresses found';
+	                    select.appendChild(opt);
+	                    return;
+	                }
+
+	                for (const ip of ips) {
+	                    const opt = document.createElement('option');
+	                    opt.value = ip;
+	                    opt.textContent = ip;
+	                    select.appendChild(opt);
+	                }
+
+	                const stored = getFtpSettingsFromStorage();
+	                const preferred = stored.serverIp || previous || (ips.length === 1 ? ips[0] : ips[0]);
+	                select.value = preferred;
+	                saveFtpSettings();
+	            } catch (error) {
+	                select.innerHTML = '';
+	                const opt = document.createElement('option');
+	                opt.value = '';
+	                opt.textContent = 'Failed to load IPs';
+	                select.appendChild(opt);
+	                setFtpModalStatus('error', 'Failed to load local IPs: ' + error);
+	            }
+	        }
+
+	        function renderFtpPreview() {
+	            const preview = document.getElementById('ftpPreview');
+	            if (!preview) return;
+
+	            const settings = getFtpSettingsFromStorage();
+	            const password = document.getElementById('ftpPassword')?.value || '';
+	            const masked = password ? '********' : '(not set)';
+	            const login = settings.username ? settings.username : '(not set)';
+	            const ip = settings.serverIp || '(select IP)';
+	            const port = settings.port || DEFAULT_FTP_SETTINGS.port;
+
+	            preview.textContent =
+	                `Camera settings (copy into the camera):\n` +
+	                `Type: FTP\n` +
+	                `IP address: ${ip}\n` +
+	                `Port: ${port}\n` +
+	                `Login: ${login}\n` +
+	                `Password: ${masked}\n` +
+	                `Path: /\n` +
+	                `Encryption: Off\n`;
+	        }
+
+	        async function refreshFtpStatus() {
+	            try {
+	                const status = await invoke('get_ftp_server_status');
+	                const startBtn = document.getElementById('ftpStartBtn');
+	                const stopBtn = document.getElementById('ftpStopBtn');
+
+	                if (status && status.running) {
+	                    setFtpModalStatus('connected', `Running on ${status.bindAddr}`);
+	                    if (startBtn) startBtn.hidden = true;
+	                    if (stopBtn) stopBtn.hidden = false;
+	                } else {
+	                    setFtpModalStatus('disconnected', 'Stopped');
+	                    if (startBtn) startBtn.hidden = false;
+	                    if (stopBtn) stopBtn.hidden = true;
+	                }
+	            } catch (error) {
+	                setFtpModalStatus('error', 'Status check failed: ' + error);
+	            }
+	        }
+
+	        async function startFtpServer() {
+	            if (ftpActionInFlight) return;
+
+	            const settings = getFtpSettingsFromStorage();
+	            const password = document.getElementById('ftpPassword')?.value || '';
+	            const username = document.getElementById('ftpUsername')?.value || settings.username || '';
+
+	            if (!settings.serverIp) {
+	                setFtpModalStatus('error', 'Select the server IP address first.');
+	                return;
+	            }
+	            if (!settings.rootDir) {
+	                setFtpModalStatus('error', 'Set a local storage folder first.');
+	                return;
+	            }
+	            if (!username || !password) {
+	                setFtpModalStatus('error', 'Set a login and password (camera requires both).');
+	                return;
+	            }
+
+	            ftpActionInFlight = true;
+	            const startBtn = document.getElementById('ftpStartBtn');
+	            if (startBtn) startBtn.disabled = true;
+
+	            try {
+	                saveFtpSettings();
+	                setFtpModalStatus('connected', 'Starting FTP server...');
+
+	                const config = {
+	                    bindHost: '0.0.0.0',
+	                    port: settings.port || DEFAULT_FTP_SETTINGS.port,
+	                    rootDir: settings.rootDir,
+	                    username,
+	                    password,
+	                    passivePortStart: settings.passiveStart || DEFAULT_FTP_SETTINGS.passiveStart,
+	                    passivePortEnd: settings.passiveEnd || DEFAULT_FTP_SETTINGS.passiveEnd,
+	                    passiveHost: settings.serverIp,
+	                    allowAnonymous: false,
+	                    enableActiveMode: Boolean(settings.enableActiveMode),
+	                };
+
+	                await invoke('start_ftp_server', { config });
+	                await refreshFtpStatus();
+	            } catch (error) {
+	                setFtpModalStatus('error', 'Failed to start: ' + error);
+	            } finally {
+	                ftpActionInFlight = false;
+	                if (startBtn) startBtn.disabled = false;
+	            }
+	        }
+
+	        async function stopFtpServer() {
+	            if (ftpActionInFlight) return;
+	            ftpActionInFlight = true;
+
+	            const stopBtn = document.getElementById('ftpStopBtn');
+	            if (stopBtn) stopBtn.disabled = true;
+
+	            try {
+	                setFtpModalStatus('connected', 'Stopping FTP server...');
+	                await invoke('stop_ftp_server');
+	                await refreshFtpStatus();
+	            } catch (error) {
+	                setFtpModalStatus('error', 'Failed to stop: ' + error);
+	            } finally {
+	                ftpActionInFlight = false;
+	                if (stopBtn) stopBtn.disabled = false;
 	            }
 	        }
 
@@ -1156,6 +1521,11 @@
 	                closeAuthorModal();
 	            }
 	        });
+	        document.getElementById('ftpModal').addEventListener('click', (event) => {
+	            if (event.target === event.currentTarget) {
+	                closeFtpModal();
+	            }
+	        });
 	        document.getElementById('discoverModal').addEventListener('click', (event) => {
 	            if (event.target === event.currentTarget) {
 	                closeDiscoverModal();
@@ -1163,10 +1533,18 @@
 	        });
 	        document.addEventListener('keydown', (event) => {
 	            const modal = document.getElementById('authorModal');
+	            const ftpModal = document.getElementById('ftpModal');
+	            const updateModal = document.getElementById('updateModal');
 	            const discoverModal = document.getElementById('discoverModal');
 	            if (event.key !== 'Escape') return;
 	            if (modal && !modal.hidden) {
 	                closeAuthorModal();
+	            }
+	            if (ftpModal && !ftpModal.hidden) {
+	                closeFtpModal();
+	            }
+	            if (updateModal && !updateModal.hidden) {
+	                closeUpdateModal();
 	            }
 	            if (discoverModal && !discoverModal.hidden) {
 	                closeDiscoverModal();

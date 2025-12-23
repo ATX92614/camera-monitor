@@ -3,6 +3,8 @@
     windows_subsystem = "windows"
 )]
 
+mod ftp_server;
+
 use reqwest::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -14,6 +16,11 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri_plugin_updater::{Update, UpdaterExt};
 use tokio::net::UdpSocket;
+
+use ftp_server::{
+    get_ftp_server_status, get_local_ipv4_addresses, start_ftp_server, stop_ftp_server,
+    FtpServerState,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AlarmStatus {
@@ -592,10 +599,15 @@ fn main() {
             clients: Mutex::new(HashMap::new()),
             pending_update: Mutex::new(None),
         })
+        .manage(FtpServerState::default())
         .invoke_handler(tauri::generate_handler![
             poll_all_alarms,
             set_alarm,
             discover_devices,
+            get_local_ipv4_addresses,
+            get_ftp_server_status,
+            start_ftp_server,
+            stop_ftp_server,
             check_for_update,
             install_update
         ])
