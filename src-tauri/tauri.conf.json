@@ -11,7 +11,7 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 760,
+        "height": 912,
         "resizable": true,
         "title": "Camera Alarm Monitor",
         "width": 1200,

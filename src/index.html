@@ -384,6 +384,32 @@
             margin-top: 6px;
         }
 
+        .io-sections {
+            margin-top: 6px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .io-sections.single {
+            grid-template-columns: 1fr;
+        }
+
+        .io-sections .alarms-section {
+            margin-top: 0;
+        }
+
+        .io-sections .alarms-grid {
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        }
+
+        @media (max-width: 1100px) {
+            .io-sections {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .alarms-section h3 {
             text-align: center;
             margin: 0 0 14px;
@@ -769,14 +795,16 @@
 	            </div>
 	        </div>
 
-	        <div class="alarms-section" id="inputsSection" hidden>
-	            <h3 id="inputsTitle">Inputs</h3>
-	            <div class="alarms-grid" id="inputsGrid"></div>
-	        </div>
+	        <div class="io-sections" id="ioSections" hidden>
+	            <div class="alarms-section" id="inputsSection" hidden>
+	                <h3 id="inputsTitle">Inputs</h3>
+	                <div class="alarms-grid" id="inputsGrid"></div>
+	            </div>
 
-	        <div class="alarms-section" id="relaysSection" hidden>
-	            <h3 id="relaysTitle">Relays</h3>
-	            <div class="alarms-grid" id="relaysGrid"></div>
+	            <div class="alarms-section" id="relaysSection" hidden>
+	                <h3 id="relaysTitle">Relays</h3>
+	                <div class="alarms-grid" id="relaysGrid"></div>
+	            </div>
 	        </div>
 	    </div>
 
@@ -959,6 +987,19 @@
 
             ioLayout = null;
             sendingRelays.clear();
+            updateIoSectionsLayout();
+        }
+
+        function updateIoSectionsLayout() {
+            const wrapper = document.getElementById('ioSections');
+            const inputsSection = document.getElementById('inputsSection');
+            const relaysSection = document.getElementById('relaysSection');
+            if (!wrapper || !inputsSection || !relaysSection) return;
+
+            const hasInputs = !inputsSection.hidden;
+            const hasRelays = !relaysSection.hidden;
+            wrapper.hidden = !hasInputs && !hasRelays;
+            wrapper.classList.toggle('single', hasInputs !== hasRelays);
         }
 
         function initInputCards(inputIds) {
@@ -968,25 +1009,25 @@
             if (!section || !grid || !title) return;
 
             grid.innerHTML = '';
-            if (!Array.isArray(inputIds) || inputIds.length === 0) {
-                section.hidden = true;
-                title.textContent = 'Inputs';
-                return;
+
+            const hasInputs = Array.isArray(inputIds) && inputIds.length > 0;
+            section.hidden = !hasInputs;
+            title.textContent = hasInputs ? `Inputs (${inputIds.length})` : 'Inputs';
+
+            if (hasInputs) {
+                inputIds.forEach((id, idx) => {
+                    const card = document.createElement('div');
+                    card.className = 'alarm-card';
+                    card.id = `input-card-${id}`;
+                    card.innerHTML = `
+                        <div class="alarm-num">Input ${idx + 1}</div>
+                        <div class="alarm-indicator unknown" id="input-indicator-${id}"></div>
+                    `;
+                    grid.appendChild(card);
+                });
             }
 
-            title.textContent = `Inputs (1-${inputIds.length})`;
-            section.hidden = false;
-
-            inputIds.forEach((id, idx) => {
-                const card = document.createElement('div');
-                card.className = 'alarm-card';
-                card.id = `input-card-${id}`;
-                card.innerHTML = `
-                    <div class="alarm-num">Input ${idx + 1}</div>
-                    <div class="alarm-indicator unknown" id="input-indicator-${id}"></div>
-                `;
-                grid.appendChild(card);
-            });
+            updateIoSectionsLayout();
         }
 
         function initRelayCards(relayIds) {
@@ -996,29 +1037,29 @@
             if (!section || !grid || !title) return;
 
             grid.innerHTML = '';
-            if (!Array.isArray(relayIds) || relayIds.length === 0) {
-                section.hidden = true;
-                title.textContent = 'Relays';
-                return;
+
+            const hasRelays = Array.isArray(relayIds) && relayIds.length > 0;
+            section.hidden = !hasRelays;
+            title.textContent = hasRelays ? `Relays (${relayIds.length})` : 'Relays';
+
+            if (hasRelays) {
+                relayIds.forEach((id, idx) => {
+                    const card = document.createElement('div');
+                    card.className = 'alarm-card';
+                    card.id = `relay-card-${id}`;
+                    card.innerHTML = `
+                        <div class="alarm-num">Relay ${idx + 1}</div>
+                        <div class="alarm-indicator unknown" id="relay-indicator-${id}"></div>
+                        <label class="alarm-toggle" id="relay-toggle-${id}">
+                            <input type="checkbox" id="relay-checkbox-${id}" onchange="toggleRelay(${id})" disabled>
+                            <span class="alarm-toggle-slider"></span>
+                        </label>
+                    `;
+                    grid.appendChild(card);
+                });
             }
 
-            title.textContent = `Relays (1-${relayIds.length})`;
-            section.hidden = false;
-
-            relayIds.forEach((id, idx) => {
-                const card = document.createElement('div');
-                card.className = 'alarm-card';
-                card.id = `relay-card-${id}`;
-                card.innerHTML = `
-                    <div class="alarm-num">Relay ${idx + 1}</div>
-                    <div class="alarm-indicator unknown" id="relay-indicator-${id}"></div>
-                    <label class="alarm-toggle" id="relay-toggle-${id}">
-                        <input type="checkbox" id="relay-checkbox-${id}" onchange="toggleRelay(${id})" disabled>
-                        <span class="alarm-toggle-slider"></span>
-                    </label>
-                `;
-                grid.appendChild(card);
-            });
+            updateIoSectionsLayout();
         }
 
 	        function getUsername() {
